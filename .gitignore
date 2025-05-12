@@ -1,4 +1,3 @@
-# Ignore entire archive folder (including all images and annotations)
 data/archive/
 
 data/train_10k/
@@ -8,11 +7,9 @@ runs/
 *.ckpt
 *.pth
 
-# Python files
 __pycache__/
 *.pyc
 
-# OS / editor junk
 .DS_Store
 .env
 .vscode/
