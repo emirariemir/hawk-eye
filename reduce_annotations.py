@@ -2,9 +2,9 @@ import json
 import os
 
 # === Paths ===
-original_ann_path = 'archive/train/annotations.json'
-reduced_img_dir = 'archive/train_10k/images'
-output_ann_path = 'archive/train_10k/annotations.json'
+original_ann_path = 'data/archive/train/annotations.json'
+reduced_img_dir = 'data/archive/train_10k/images'
+output_ann_path = 'data/archive/train_10k/annotations.json'
 
 print("📦 Loading original annotations...")
 with open(original_ann_path, 'r') as f:
