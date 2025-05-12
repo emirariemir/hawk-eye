@@ -1,10 +1,8 @@
 # Ignore entire archive folder (including all images and annotations)
 data/archive/
 
-# Optional: ignore reduced version too
 data/train_10k/
 
-# If you ever cache or log training runs
 runs/
 *.log
 *.ckpt
