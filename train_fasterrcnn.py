@@ -1,73 +1,62 @@
 import os
+import cv2
 import torch
 import torchvision
-import cv2
-import yaml
 import numpy as np
+from pycocotools.coco import COCO
 from tqdm import tqdm
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from torchvision.transforms import functional as F
 from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms import functional as F
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 
-# ---- Load class names from data.yaml ----
-def load_yaml_classes(yaml_path):
-    with open(yaml_path, 'r') as f:
-        data = yaml.safe_load(f)
-    return data['names']
-
-# ---- Custom Dataset class for YOLO-format ----
-class YoloDataset(Dataset):
-    def __init__(self, images_dir, labels_dir, img_size=640):
-        self.images_dir = images_dir
-        self.labels_dir = labels_dir
-        self.img_files = sorted(os.listdir(images_dir))
-        self.img_size = img_size
+# ---- COCO-style Dataset Class ----
+class CocoDetectionDataset(Dataset):
+    def __init__(self, img_dir, ann_file, transforms=None):
+        self.img_dir = img_dir
+        self.coco = COCO(ann_file)
+        self.ids = list(self.coco.imgs.keys())
+        self.transforms = transforms
 
     def __len__(self):
-        return len(self.img_files)
+        return len(self.ids)
 
-    def __getitem__(self, idx):
-        img_path = os.path.join(self.images_dir, self.img_files[idx])
-        label_path = os.path.join(self.labels_dir, self.img_files[idx].replace('.jpg', '.txt').replace('.png', '.txt'))
+    def __getitem__(self, index):
+        img_id = self.ids[index]
+        ann_ids = self.coco.getAnnIds(imgIds=img_id)
+        anns = self.coco.loadAnns(ann_ids)
+        img_info = self.coco.loadImgs(img_id)[0]
+        img_path = os.path.join(self.img_dir, img_info['file_name'])
 
-        # Load and normalize image
+        # Load image
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        h, w, _ = img.shape
         img_tensor = F.to_tensor(img)
 
-        # Parse YOLO label
+        # Load boxes and labels
         boxes = []
         labels = []
+        for ann in anns:
+            x, y, w, h = ann['bbox']
+            boxes.append([x, y, x + w, y + h])
+            labels.append(ann['category_id'])
 
-        with open(label_path, 'r') as f:
-            for line in f.readlines():
-                cls, x, y, bw, bh = map(float, line.strip().split())
-                x1 = (x - bw / 2) * w
-                y1 = (y - bh / 2) * h
-                x2 = (x + bw / 2) * w
-                y2 = (y + bh / 2) * h
-                boxes.append([x1, y1, x2, y2])
-                labels.append(int(cls))
-
-        boxes = torch.tensor(boxes, dtype=torch.float32)
-        labels = torch.tensor(labels, dtype=torch.int64)
         target = {
-            "boxes": boxes,
-            "labels": labels,
+            "boxes": torch.tensor(boxes, dtype=torch.float32),
+            "labels": torch.tensor(labels, dtype=torch.int64),
+            "image_id": torch.tensor([img_id])
         }
 
         return img_tensor, target
 
-# ---- Load model ----
+# ---- Load Faster R-CNN model ----
 def get_model(num_classes):
     model = fasterrcnn_resnet50_fpn(pretrained=True)
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
     return model
 
-# ---- Training loop ----
+# ---- Training Loop ----
 def train(model, dataloader, device, num_epochs=10, lr=0.005):
     model.to(device)
     model.train()
@@ -88,25 +77,24 @@ def train(model, dataloader, device, num_epochs=10, lr=0.005):
             optimizer.step()
             total_loss += losses.item()
 
-        print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
+        print(f"Epoch {epoch+1} | Loss: {total_loss:.4f}")
 
-# ---- Main entry ----
+# ---- Main Entry ----
 if __name__ == "__main__":
-    # Edit these paths
-    data_yaml_path = "vehicle_archive/data.yaml"
-    train_img_dir = "vehicle_archive/train/images"
-    train_lbl_dir = "vehicle_archive/train/labels"
+    train_img_dir = "dataset/train_reduced/images"
+    ann_file = "dataset/train_reduced/annotations.json"
 
-    class_names = load_yaml_classes(data_yaml_path)
-    num_classes = len(class_names) + 1  # +1 for background class
+    # Load COCO to count categories
+    coco = COCO(ann_file)
+    num_classes = len(coco.getCatIds()) + 1  # +1 for background
 
-    dataset = YoloDataset(train_img_dir, train_lbl_dir)
+    dataset = CocoDetectionDataset(train_img_dir, ann_file)
     dataloader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
 
-    model = get_model(num_classes)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_model(num_classes)
 
     train(model, dataloader, device, num_epochs=10)
 
-    # Save the trained model
-    torch.save(model.state_dict(), "fasterrcnn_yolo_format.pth")
+    # Save the model
+    torch.save(model.state_dict(), "fasterrcnn_coco_trained.pth")
