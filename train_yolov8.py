@@ -9,6 +9,9 @@ model.train(
     epochs=50,
     imgsz=640,
     batch=16,
+    fliplr=0.5,
+    flipud=0.1,
+    weight_decay=0.0005,
     name="yolo-custom",
     project="runs/train"
 )

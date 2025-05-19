@@ -13,7 +13,7 @@ def reduce_dataset(split_name: str, root_dir: str = "dataset", max_images: int =
     images_dir = split_dir / "images"
     annotations_path = split_dir / "annotations.json"
 
-    reduced_dir = Path(root_dir) / f"{split_name}_teene_reduced"
+    reduced_dir = Path(root_dir) / f"{split_name}_reduced5k"
     reduced_images_dir = reduced_dir / "images"
     reduced_annotations_path = reduced_dir / "annotations.json"
 
@@ -60,5 +60,5 @@ def reduce_dataset(split_name: str, root_dir: str = "dataset", max_images: int =
     print(f"✅ {split_name} dataset reduced to {len(kept_images)} images and saved in '{reduced_dir}'")
 
 if __name__ == "__main__":
-    reduce_dataset("train", root_dir="dataset", max_images=10000)
-    reduce_dataset("validation", root_dir="dataset", max_images=10000)
+    reduce_dataset("train", root_dir="dataset", max_images=5000)
+    reduce_dataset("validation", root_dir="dataset", max_images=5000)

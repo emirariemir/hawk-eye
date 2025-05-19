@@ -5,47 +5,17 @@ import json
 import os
 from tqdm import tqdm
 
-def evaluate_frcnn(model, val_dataset, annotation_path, device, output_json="frcnn_predictions.json"):
+def compute_validation_loss(model, val_loader, device):
     model.eval()
-    model.to(device)
+    val_loss = 0
 
-    coco_gt = COCO(annotation_path)
-    coco_results = []
+    with torch.no_grad():
+        for images, targets in val_loader:
+            images = [img.to(device) for img in images]
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-    img_ids = []
+            loss_dict = model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
+            val_loss += losses.item()
 
-    for img, target in tqdm(val_dataset, desc="Running inference"):
-        img = img.to(device)
-        with torch.no_grad():
-            outputs = model([img])[0]
-
-        image_id = int(target['image_id'].item())
-        img_ids.append(image_id)
-
-        boxes = outputs['boxes'].cpu().numpy()
-        scores = outputs['scores'].cpu().numpy()
-        labels = outputs['labels'].cpu().numpy()
-
-        for box, score, label in zip(boxes, scores, labels):
-            x_min, y_min, x_max, y_max = box
-            width = x_max - x_min
-            height = y_max - y_min
-
-            coco_results.append({
-                "image_id": image_id,
-                "category_id": int(label),
-                "bbox": [x_min, y_min, width, height],
-                "score": float(score)
-            })
-
-    # Save predictions in COCO JSON format
-    with open(output_json, "w") as f:
-        json.dump(coco_results, f, indent=4)
-
-    # Load predictions and run evaluation
-    coco_dt = coco_gt.loadRes(output_json)
-    coco_eval = COCOeval(coco_gt, coco_dt, iouType='bbox')
-    coco_eval.params.imgIds = img_ids
-    coco_eval.evaluate()
-    coco_eval.accumulate()
-    coco_eval.summarize()
+    return val_loss / len(val_loader)

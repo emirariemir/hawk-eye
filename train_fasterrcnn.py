@@ -1,6 +1,6 @@
 import os
 import cv2
-from evaluate_rcnn import evaluate_frcnn
+from evaluate_rcnn import compute_validation_loss
 import torch
 import torchvision
 import numpy as np
@@ -58,7 +58,7 @@ def get_model(num_classes):
     return model
 
 # ---- Training Loop ----
-def train(model, dataloader, device, num_epochs=10, lr=0.005):
+def train(model, train_loader, val_loader, device, num_epochs=10, lr=0.005):
     model.to(device)
     model.train()
 
@@ -66,7 +66,7 @@ def train(model, dataloader, device, num_epochs=10, lr=0.005):
 
     for epoch in range(num_epochs):
         total_loss = 0
-        for images, targets in tqdm(dataloader, desc=f"Epoch {epoch+1}"):
+        for images, targets in tqdm(train_loader, desc=f"Epoch {epoch+1}"):
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -78,6 +78,11 @@ def train(model, dataloader, device, num_epochs=10, lr=0.005):
             optimizer.step()
             total_loss += losses.item()
 
+        model.eval()
+        with torch.no_grad():
+            val_loss = compute_validation_loss(model, val_loader, device)
+            print(f"Epoch {epoch+1} | Validation Loss: {val_loss:.4f}")
+
         print(f"Epoch {epoch+1} | Loss: {total_loss:.4f}")
 
 # ---- Main Entry ----
@@ -85,32 +90,24 @@ if __name__ == "__main__":
     train_img_dir = "dataset/train_reduced/images"
     train_ann_file = "dataset/train_reduced/annotations.json"
 
+    val_img_dir = "dataset/train_reduced/images"
+    val_ann_file = "dataset/train_reduced/annotations.json"
+
     # Load COCO to count categories
     coco = COCO(train_ann_file)
     num_classes = len(coco.getCatIds()) + 1  # +1 for background
 
     dataset = CocoDetectionDataset(train_img_dir, train_ann_file)
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
+    train_loader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
+
+    val_dataset = CocoDetectionDataset(val_img_dir, val_ann_file)
+    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = get_model(num_classes)
 
-    train(model, dataloader, device, num_epochs=50)
+    train(model, train_loader, val_loader, device, num_epochs=50)
 
     # Save the model
     torch.save(model.state_dict(), "fasterrcnn_coco_trained.pth")
-
-
-    # ---- Accuracy Metric Evaluation ---- may not work :{
-    val_img_dir = "dataset/validation_reduced/images"
-    val_ann_file = "dataset/validation_reduced/annotations.json"
-
-    val_dataset = CocoDetectionDataset(val_img_dir, val_ann_file)
-
-    evaluate_frcnn (
-        model=model,
-        val_dataset=val_dataset,
-        annotation_path="dataset/validation_reduced/annotations.json",
-        device=device
-    )
 
