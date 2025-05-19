@@ -60,5 +60,5 @@ def reduce_dataset(split_name: str, root_dir: str = "dataset", max_images: int =
     print(f"✅ {split_name} dataset reduced to {len(kept_images)} images and saved in '{reduced_dir}'")
 
 if __name__ == "__main__":
-    reduce_dataset("train", root_dir="dataset", max_images=300)
-    reduce_dataset("validation", root_dir="dataset", max_images=300)
+    reduce_dataset("train", root_dir="dataset", max_images=10000)
+    reduce_dataset("validation", root_dir="dataset", max_images=10000)

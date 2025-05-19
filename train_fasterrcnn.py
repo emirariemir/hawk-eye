@@ -1,5 +1,6 @@
 import os
 import cv2
+from evaluate_rcnn import evaluate_frcnn
 import torch
 import torchvision
 import numpy as np
@@ -82,13 +83,13 @@ def train(model, dataloader, device, num_epochs=10, lr=0.005):
 # ---- Main Entry ----
 if __name__ == "__main__":
     train_img_dir = "dataset/train_reduced/images"
-    ann_file = "dataset/train_reduced/annotations.json"
+    train_ann_file = "dataset/train_reduced/annotations.json"
 
     # Load COCO to count categories
-    coco = COCO(ann_file)
+    coco = COCO(train_ann_file)
     num_classes = len(coco.getCatIds()) + 1  # +1 for background
 
-    dataset = CocoDetectionDataset(train_img_dir, ann_file)
+    dataset = CocoDetectionDataset(train_img_dir, train_ann_file)
     dataloader = DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -98,3 +99,16 @@ if __name__ == "__main__":
 
     # Save the model
     torch.save(model.state_dict(), "fasterrcnn_coco_trained.pth")
+
+    val_img_dir = "dataset/validation_reduced/images"
+    val_ann_file = "dataset/validation_reduced/annotations.json"
+
+    val_dataset = CocoDetectionDataset(val_img_dir, val_ann_file)
+
+    evaluate_frcnn (
+        model=model,
+        val_dataset=val_dataset,  # Must be dataset, not DataLoader
+        annotation_path="dataset/validation_reduced/annotations.json",
+        device=device
+    )
+

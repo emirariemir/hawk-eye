@@ -1,0 +1,10 @@
+names:
+  - person
+  - car
+  - bus
+  - motorcycle
+  - bicycle
+  - other
+nc: 6
+train: /Users/emirari/cmp3011/hawk-eye/dataset/train_reduced/images
+val: /Users/emirari/cmp3011/hawk-eye/dataset/validation_reduced/images
