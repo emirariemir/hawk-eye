@@ -95,13 +95,13 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = get_model(num_classes)
 
-    train(model, dataloader, device, num_epochs=10)
+    train(model, dataloader, device, num_epochs=50)
 
     # Save the model
     torch.save(model.state_dict(), "fasterrcnn_coco_trained.pth")
 
 
-    # ---- Accuracy Metric Evaluation ----
+    # ---- Accuracy Metric Evaluation ---- may not work :{
     val_img_dir = "dataset/validation_reduced/images"
     val_ann_file = "dataset/validation_reduced/annotations.json"
 
