@@ -100,6 +100,8 @@ if __name__ == "__main__":
     # Save the model
     torch.save(model.state_dict(), "fasterrcnn_coco_trained.pth")
 
+
+    # ---- Accuracy Metric Evaluation ----
     val_img_dir = "dataset/validation_reduced/images"
     val_ann_file = "dataset/validation_reduced/annotations.json"
 
@@ -107,7 +109,7 @@ if __name__ == "__main__":
 
     evaluate_frcnn (
         model=model,
-        val_dataset=val_dataset,  # Must be dataset, not DataLoader
+        val_dataset=val_dataset,
         annotation_path="dataset/validation_reduced/annotations.json",
         device=device
     )
